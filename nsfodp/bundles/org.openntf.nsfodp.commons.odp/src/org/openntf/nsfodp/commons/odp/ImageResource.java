@@ -19,7 +19,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.text.MessageFormat;
 
 import org.openntf.nsfodp.commons.NSFODPUtil;
@@ -29,7 +28,6 @@ import org.openntf.nsfodp.commons.h.Ods;
 import org.openntf.nsfodp.commons.odp.util.ODPUtil;
 import org.w3c.dom.Document;
 
-import com.ibm.commons.xml.DOMUtil;
 import com.ibm.commons.xml.XMLException;
 
 /**
@@ -70,30 +68,9 @@ public class ImageResource extends FileResource {
 		if(!Files.isRegularFile(file)) {
 			throw new IllegalArgumentException(MessageFormat.format(Messages.AbstractSplitDesignElement_cannotReadFile, file));
 		}
-		
-		// Work around trouble where reading the XML from Files.newInputStream(p) only
-		//   reads one WORD length properly before trailing off into nulls.
-		// Observed in Domino V12b3 on Windows		
-		Path dxlTempDxl = Files.createTempFile("dxl", ".xml"); //$NON-NLS-1$ //$NON-NLS-2$
-		Files.copy(getDxlFile(), dxlTempDxl, StandardCopyOption.REPLACE_EXISTING);
-		try(InputStream isDxl = Files.newInputStream(dxlTempDxl)) {
-			Document dxlDoc = DOMUtil.createDocument(isDxl);
-					
-			Path dxlTemp = Files.createTempFile("dxl", ".xml"); //$NON-NLS-1$ //$NON-NLS-2$
-			try {
-				Files.copy(file, dxlTemp, StandardCopyOption.REPLACE_EXISTING);
-				try(InputStream is = Files.newInputStream(dxlTemp)) {
-					return DXLUtil.getImageResourceData(dxlTemp, dxlDoc);
-				}
-			} finally {
-				NSFODPUtil.deltree(dxlTemp);
-			}
-		} catch(IOException | XMLException e) {
-			throw new RuntimeException(e);
-		}finally {
-			NSFODPUtil.deltree(dxlTempDxl);
+		Document dxlDoc = ODPUtil.readXml(getDxlFile());
+		try(InputStream is = NSFODPUtil.newInputStream(file)) {
+			return DXLUtil.getImageResourceData(file, dxlDoc);
 		}
-		
-		
 	}
 }
